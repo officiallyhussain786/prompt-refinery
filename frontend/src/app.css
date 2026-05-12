@@ -1,0 +1,58 @@
+:root {
+	--bg-primary: #000000;
+	--bg-secondary: #0a0a0a;
+	--bg-tertiary: #111111;
+	--border-color: #1a1a1a;
+	--border-hover: #00ff88;
+	--text-primary: #ffffff;
+	--text-secondary: #666666;
+	--text-muted: #444444;
+	--accent: #00ff88;
+	--accent-dim: rgba(0, 255, 136, 0.1);
+	--accent-glow: rgba(0, 255, 136, 0.3);
+	--error: #ff4444;
+	--error-dim: rgba(255, 68, 68, 0.1);
+	--font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+}
+
+* {
+	box-sizing: border-box;
+	margin: 0;
+	padding: 0;
+}
+
+html {
+	scroll-behavior: smooth;
+}
+
+body {
+	background: var(--bg-primary);
+	color: var(--text-primary);
+	font-family: var(--font-mono);
+	min-height: 100vh;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+}
+
+::selection {
+	background: var(--accent);
+	color: var(--bg-primary);
+}
+
+::-webkit-scrollbar {
+	width: 8px;
+	height: 8px;
+}
+
+::-webkit-scrollbar-track {
+	background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+	background: var(--border-color);
+	border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+	background: var(--accent);
+}

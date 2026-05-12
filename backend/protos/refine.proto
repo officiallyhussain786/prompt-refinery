@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package prompt_refinery;
+
+// The request sent to refine a prompt
+message RefineRequest {
+  string original_prompt = 1;
+  string refinement_mode = 2; // "detailed", "concise", "structured", "multi_step"
+}
+
+// The refined response back to the user
+message RefineResponse {
+  string refined_prompt = 1;
+  string intent_detected = 2;
+  int32 original_score = 3; // How good was the original (1-10)
+  int32 refined_score = 4; // How good is the new one (1-10)
+  repeated string improvements = 5; // What changed
+}
+
+// The gRPC service definition
+service PromptRefiner {
+  rpc RefinePrompt(RefineRequest) returns (RefineResponse);
+}
