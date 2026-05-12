@@ -1,1 +1,19 @@
-
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "nixpacksPlan": {
+      "phases": {
+        "setup": {
+          "nixpkgs": ["python3", "pip"]
+        },
+        "install": {
+          "command": "cd backend && pip install -r requirements.txt"
+        },
+        "start": {
+          "command": "cd backend && uvicorn app.api.main:app --host
+0.0.0.0 --port $PORT"
+        }
+      }
+    }
+  }
+}
