@@ -41,6 +41,9 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:5174",
     "https://huggingface.co",
     "https://hussain4214-prompt-refinery.hf.space",
+    # Vercel deployments — update with your actual domain after first deploy
+    "https://prompt-refinery.vercel.app",
+    "https://prompt-refinery-hussain4214.vercel.app",
 ]
 
 MAX_PROMPT_LENGTH = 5000
