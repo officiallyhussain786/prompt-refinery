@@ -164,6 +164,7 @@ def get_services():
 @app.post("/refine", response_model=RefineResponse, tags=["refine"])
 async def refine_prompt(request: RefineRequest):
     """Refine a user prompt to improve LLM output quality."""
+    import traceback
     try:
         refiner, retriever = get_services()
 
@@ -182,10 +183,11 @@ async def refine_prompt(request: RefineRequest):
         )
     except ValueError as e:
         logger.error(f"Configuration error: {e}")
-        raise HTTPException(status_code=503, detail="Service not configured. Check environment variables.")
+        raise HTTPException(status_code=503, detail=f"Service not configured: {str(e)}")
     except Exception as e:
         logger.error(f"Error during refinement: {e}")
-        raise HTTPException(status_code=500, detail="An error occurred during refinement")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"An error occurred: {str(e)}")
 
 
 @app.get("/health", tags=["health"])
