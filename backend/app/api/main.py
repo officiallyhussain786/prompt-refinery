@@ -3,19 +3,18 @@ import sys
 import time
 import logging
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import datetime
 from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, field_validator
-import grpc
+from dotenv import load_dotenv
+from pathlib import Path
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-
-from app.services import refine_pb2
-from app.services import refine_pb2_grpc
+# Load .env from backend root
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
 
 # Logging setup
 logging.basicConfig(level=logging.INFO)
@@ -29,12 +28,10 @@ app = FastAPI(
 
 # ============== SECURITY CONFIG ==============
 
-# Rate limiting: { IP: [(timestamp, count), ...] }
 rate_limit_store: dict = defaultdict(list)
-RATE_LIMIT = 20  # requests per window
-RATE_WINDOW = 60  # seconds
+RATE_LIMIT = 20
+RATE_WINDOW = 60
 
-# CORS allowed origins (configure for production)
 ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:5173",
@@ -44,16 +41,12 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:5174",
 ]
 
-# Max prompt length to prevent abuse
 MAX_PROMPT_LENGTH = 5000
-
-# Valid refinement modes
 VALID_MODES = ["detailed", "concise", "structured", "multi_step"]
 
 
 # ============== MIDDLEWARE ==============
 
-# CORS middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
@@ -63,31 +56,25 @@ app.add_middleware(
 )
 
 
-# Security headers middleware
 @app.middleware("http")
 async def security_headers(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Content-Type-Options"] = "nosniff"
     response.headers["X-Frame-Options"] = "DENY"
     response.headers["X-XSS-Protection"] = "1; mode=block"
-    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
-    response.headers["Content-Security-Policy"] = "default-src 'self'"
     return response
 
 
-# Rate limiting middleware
 @app.middleware("http")
 async def rate_limit_middleware(request: Request, call_next):
     client_ip = request.client.host
 
-    # Clean old entries
     now = time.time()
     rate_limit_store[client_ip] = [
         ts for ts in rate_limit_store[client_ip]
         if now - ts < RATE_WINDOW
     ]
 
-    # Check rate limit
     if len(rate_limit_store[client_ip]) >= RATE_LIMIT:
         logger.warning(f"Rate limit exceeded for IP: {client_ip}")
         return JSONResponse(
@@ -95,7 +82,6 @@ async def rate_limit_middleware(request: Request, call_next):
             content={"detail": "Too many requests. Please wait before trying again."}
         )
 
-    # Add current request
     rate_limit_store[client_ip].append(now)
 
     response = await call_next(request)
@@ -104,7 +90,6 @@ async def rate_limit_middleware(request: Request, call_next):
     return response
 
 
-# Request logging middleware
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
@@ -151,90 +136,54 @@ class RefineResponse(BaseModel):
     improvements: list
 
 
-# ============== HELPERS ==============
+# ============== SERVICE CLIENTS ==============
 
-GRPC_TARGET = os.getenv("GRPC_TARGET", "localhost:50051")
-
-
-class GrpcClient:
-    """Singleton gRPC client with a persistent channel and auto-reconnect."""
-
-    _instance: Optional["GrpcClient"] = None
-    _channel: Optional[grpc.Channel] = None
-    _stub: Optional[refine_pb2_grpc.PromptRefinerStub] = None
-
-    def __new__(cls) -> "GrpcClient":
-        if cls._instance is None:
-            cls._instance = super().__new__(cls)
-            cls._instance._connect()
-        return cls._instance
-
-    def _connect(self) -> None:
-        """Create (or recreate) the channel and stub."""
-        if self._channel is not None:
-            try:
-                self._channel.close()
-            except Exception:
-                pass
-        self._channel = grpc.insecure_channel(
-            GRPC_TARGET,
-            options=[
-                ("grpc.keepalive_time_ms", 30_000),
-                ("grpc.keepalive_timeout_ms", 10_000),
-                ("grpc.keepalive_permit_without_calls", True),
-                ("grpc.http2.max_pings_without_data", 0),
-            ],
-        )
-        self._stub = refine_pb2_grpc.PromptRefinerStub(self._channel)
-        logger.info(f"gRPC channel established → {GRPC_TARGET}")
-
-    def get_stub(self) -> refine_pb2_grpc.PromptRefinerStub:
-        """Return the cached stub."""
-        return self._stub
+_refiner = None
+_retriever = None
 
 
-_grpc_client: Optional[GrpcClient] = None
+def get_services():
+    """Lazy load services to handle initialization errors gracefully."""
+    global _refiner, _retriever
 
+    if _retriever is None:
+        from app.rag.retriever import get_retriever
+        _retriever = get_retriever()
 
-def get_grpc_stub() -> refine_pb2_grpc.PromptRefinerStub:
-    """Return the shared gRPC stub (creates the singleton on first call)."""
-    global _grpc_client
-    if _grpc_client is None:
-        _grpc_client = GrpcClient()
-    return _grpc_client.get_stub()
+    if _refiner is None:
+        from app.services.refiner import get_refiner
+        _refiner = get_refiner()
+
+    return _refiner, _retriever
 
 
 # ============== ENDPOINTS ==============
 
 @app.post("/refine", response_model=RefineResponse, tags=["refine"])
 async def refine_prompt(request: RefineRequest):
-    """Refine a user prompt to improve LLM output quality.
-
-    - **prompt**: The original prompt to refine (max 5000 chars)
-    - **mode**: Refinement style - detailed, concise, structured, or multi_step
-
-    Returns the refined prompt with analysis and improvement suggestions.
-    """
+    """Refine a user prompt to improve LLM output quality."""
     try:
-        stub = get_grpc_stub()
+        refiner, retriever = get_services()
 
-        grpc_request = refine_pb2.RefineRequest(
-            original_prompt=request.prompt,
-            refinement_mode=request.mode
+        patterns = retriever.search(request.prompt, request.mode)
+
+        result = refiner.refine(
+            request.prompt, request.mode, patterns
         )
-
-        response = stub.RefinePrompt(grpc_request)
 
         return RefineResponse(
-            refined_prompt=response.refined_prompt,
-            intent=response.intent_detected,
-            original_score=response.original_score,
-            refined_score=response.refined_score,
-            improvements=list(response.improvements)
+            refined_prompt=result["refined_prompt"],
+            intent=result["intent"],
+            original_score=result["original_score"],
+            refined_score=result["refined_score"],
+            improvements=result["improvements"]
         )
-    except grpc.RpcError as e:
-        logger.error(f"gRPC error: {e.code()} - {e.details()}")
-        raise HTTPException(status_code=503, detail="Refinement service temporarily unavailable")
+    except ValueError as e:
+        logger.error(f"Configuration error: {e}")
+        raise HTTPException(status_code=503, detail="Service not configured. Check environment variables.")
+    except Exception as e:
+        logger.error(f"Error during refinement: {e}")
+        raise HTTPException(status_code=500, detail="An error occurred during refinement")
 
 
 @app.get("/health", tags=["health"])
