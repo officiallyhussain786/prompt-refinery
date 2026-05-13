@@ -8,7 +8,7 @@ from typing import Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, HTMLResponse
 from pydantic import BaseModel, field_validator
 from dotenv import load_dotenv
 from pathlib import Path
@@ -39,6 +39,8 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:3000",
     "http://127.0.0.1:5173",
     "http://127.0.0.1:5174",
+    "https://huggingface.co",
+    "https://hussain4214-prompt-refinery.hf.space",
 ]
 
 MAX_PROMPT_LENGTH = 5000
@@ -198,20 +200,103 @@ def health_check():
 
 @app.get("/", tags=["root"])
 def root():
-    """Root endpoint with API information."""
-    return {
-        "name": "Prompt Refinery API",
-        "version": "1.0.0",
-        "docs": "/docs",
-        "security": {
-            "rate_limit": f"{RATE_LIMIT} requests per {RATE_WINDOW} seconds",
-            "max_prompt_length": MAX_PROMPT_LENGTH
-        },
-        "endpoints": {
-            "refine": "POST /refine",
-            "health": "GET /health"
-        }
-    }
+    """Root endpoint with UI."""
+    html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Prompt Refinery</title>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            * { box-sizing: border-box; margin: 0; padding: 0; }
+            body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0d1117; color: #c9d1d9; min-height: 100vh; padding: 40px 20px; }
+            .container { max-width: 600px; margin: 0 auto; }
+            h1 { text-align: center; margin-bottom: 30px; color: #58a6ff; }
+            .terminal { background: #161b22; border: 1px solid #30363d; border-radius: 12px; padding: 24px; }
+            label { display: block; margin-bottom: 8px; color: #8b949e; font-size: 14px; }
+            textarea { width: 100%; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 16px; color: #c9d1d9; font-size: 14px; min-height: 100px; resize: vertical; margin-bottom: 16px; }
+            textarea:focus { outline: none; border-color: #58a6ff; }
+            .modes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
+            .mode-btn { background: transparent; border: 1px solid #30363d; color: #8b949e; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+            .mode-btn.active { background: #238636; color: white; border-color: #238636; }
+            .refine-btn { width: 100%; background: #238636; border: none; color: white; padding: 14px; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; }
+            .refine-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+            .result { margin-top: 20px; padding: 16px; background: #0d1117; border-radius: 8px; display: none; }
+            .result.show { display: block; }
+            .result h3 { color: #58a6ff; font-size: 12px; margin-bottom: 12px; }
+            .result pre { white-space: pre-wrap; font-size: 14px; line-height: 1.6; }
+            .scores { display: flex; gap: 16px; margin-top: 16px; }
+            .score { flex: 1; padding: 12px; background: #0d1117; border-radius: 8px; text-align: center; }
+            .score-label { font-size: 11px; color: #8b949e; margin-bottom: 4px; }
+            .score-value { font-size: 20px; font-weight: bold; }
+            .error { background: #f8514922; border: 1px solid #f85149; color: #f85149; padding: 12px; border-radius: 8px; margin-top: 16px; display: none; }
+            .error.show { display: block; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>[PROMPT REFINERY]</h1>
+            <div class="terminal">
+                <label>Enter your prompt</label>
+                <textarea id="prompt" placeholder="write a python function to calculate fibonacci..."></textarea>
+                <label>Refinement Mode</label>
+                <div class="modes">
+                    <button class="mode-btn active" data-mode="detailed">DETAILED</button>
+                    <button class="mode-btn" data-mode="concise">CONCISE</button>
+                    <button class="mode-btn" data-mode="structured">STRUCTURED</button>
+                    <button class="mode-btn" data-mode="multi_step">MULTI_STEP</button>
+                </div>
+                <button class="refine-btn" onclick="refine()">REFINE PROMPT</button>
+                <div class="error" id="error"></div>
+                <div class="result" id="result">
+                    <h3>REFINED PROMPT</h3>
+                    <pre id="refined"></pre>
+                    <div class="scores">
+                        <div class="score"><div class="score-label">ORIGINAL</div><div class="score-value" id="origScore">-</div></div>
+                        <div class="score"><div class="score-label">REFINED</div><div class="score-value" id="refScore">-</div></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <script>
+            let mode = 'detailed';
+            document.querySelectorAll('.mode-btn').forEach(btn => {
+                btn.onclick = () => {
+                    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    mode = btn.dataset.mode;
+                };
+            });
+            async function refine() {
+                const prompt = document.getElementById('prompt').value;
+                if (!prompt) return;
+                document.querySelector('.refine-btn').disabled = true;
+                document.getElementById('error').classList.remove('show');
+                document.getElementById('result').classList.remove('show');
+                try {
+                    const res = await fetch('/refine', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({prompt, mode})
+                    });
+                    const data = await res.json();
+                    if (!res.ok) throw new Error(data.detail || 'Error');
+                    document.getElementById('refined').textContent = data.refined_prompt;
+                    document.getElementById('origScore').textContent = data.original_score + '/10';
+                    document.getElementById('refScore').textContent = data.refined_score + '/10';
+                    document.getElementById('result').classList.add('show');
+                } catch (e) {
+                    document.getElementById('error').textContent = e.message;
+                    document.getElementById('error').classList.add('show');
+                }
+                document.querySelector('.refine-btn').disabled = false;
+            }
+        </script>
+    </body>
+    </html>
+    """
+    return HTMLResponse(content=html)
 
 
 @app.exception_handler(Exception)
