@@ -1,8 +1,16 @@
 import os
 import sys
+from pathlib import Path
 
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Load .env from backend root
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+except ImportError:
+    pass  # dotenv not installed, rely on shell environment
 
 from concurrent import futures
 import grpc

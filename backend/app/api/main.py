@@ -153,9 +153,55 @@ class RefineResponse(BaseModel):
 
 # ============== HELPERS ==============
 
+GRPC_TARGET = os.getenv("GRPC_TARGET", "localhost:50051")
+
+
+class GrpcClient:
+    """Singleton gRPC client with a persistent channel and auto-reconnect."""
+
+    _instance: Optional["GrpcClient"] = None
+    _channel: Optional[grpc.Channel] = None
+    _stub: Optional[refine_pb2_grpc.PromptRefinerStub] = None
+
+    def __new__(cls) -> "GrpcClient":
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._connect()
+        return cls._instance
+
+    def _connect(self) -> None:
+        """Create (or recreate) the channel and stub."""
+        if self._channel is not None:
+            try:
+                self._channel.close()
+            except Exception:
+                pass
+        self._channel = grpc.insecure_channel(
+            GRPC_TARGET,
+            options=[
+                ("grpc.keepalive_time_ms", 30_000),
+                ("grpc.keepalive_timeout_ms", 10_000),
+                ("grpc.keepalive_permit_without_calls", True),
+                ("grpc.http2.max_pings_without_data", 0),
+            ],
+        )
+        self._stub = refine_pb2_grpc.PromptRefinerStub(self._channel)
+        logger.info(f"gRPC channel established → {GRPC_TARGET}")
+
+    def get_stub(self) -> refine_pb2_grpc.PromptRefinerStub:
+        """Return the cached stub."""
+        return self._stub
+
+
+_grpc_client: Optional[GrpcClient] = None
+
+
 def get_grpc_stub() -> refine_pb2_grpc.PromptRefinerStub:
-    channel = grpc.insecure_channel('localhost:50051')
-    return refine_pb2_grpc.PromptRefinerStub(channel)
+    """Return the shared gRPC stub (creates the singleton on first call)."""
+    global _grpc_client
+    if _grpc_client is None:
+        _grpc_client = GrpcClient()
+    return _grpc_client.get_stub()
 
 
 # ============== ENDPOINTS ==============

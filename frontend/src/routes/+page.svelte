@@ -231,9 +231,7 @@
 			{/if}
 		</div>
 
-		<footer>
-			<span>Built with Groq + Svelte</span>
-		</footer>
+		<footer></footer>
 	</div>
 </main>
 
