@@ -8,7 +8,7 @@ class Retriever:
         self.hf_token = os.getenv("HF_TOKEN")
         if not self.hf_token:
             raise ValueError("HF_TOKEN environment variable is not set")
-        self.endpoint = "https://api-inference.huggingface.co/pipeline/feature-extraction/sentence-transformers/all-MiniLM-L6-v2"
+        self.endpoint = "https://api-inference.huggingface.co/models/sentence-transformers/all-MiniLM-L6-v2"
         self.patterns = []
         self.mode_patterns = {}
         self.embeddings = []
