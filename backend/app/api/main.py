@@ -41,6 +41,7 @@ ALLOWED_ORIGINS = [
     "http://127.0.0.1:5174",
     "https://huggingface.co",
     "https://hussain4214-prompt-refinery.hf.space",
+    "https://cleanprompt.vercel.app",
     "https://prompt-refinery-theta.vercel.app",
 ]
 
