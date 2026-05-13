@@ -14,12 +14,13 @@
 	} | null>(null);
 	let error = $state('');
 	let showCopied = $state(false);
+	let showFeatures = $state(false);
 
 	const modes = [
-		{ value: 'detailed', label: 'DETAILED' },
-		{ value: 'concise', label: 'CONCISE' },
-		{ value: 'structured', label: 'STRUCTURED' },
-		{ value: 'multi_step', label: 'MULTI_STEP' }
+		{ value: 'detailed', label: 'DETAILED', desc: 'Comprehensive with full context' },
+		{ value: 'concise', label: 'CONCISE', desc: 'Short and direct' },
+		{ value: 'structured', label: 'STRUCTURED', desc: 'Organized format' },
+		{ value: 'multi_step', label: 'MULTI_STEP', desc: 'Step-by-step process' }
 	];
 
 	const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -61,7 +62,7 @@
 </script>
 
 <svelte:head>
-	<title>Prompt Refinery</title>
+	<title>CleanPrompt — AI Prompt Refinement</title>
 	<link rel="preconnect" href="https://fonts.googleapis.com">
 	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
 	<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
@@ -72,11 +73,27 @@
 		<header>
 			<div class="logo">
 				<span class="logo-bracket">[</span>
-				<span class="logo-text">PROMPT REFINERY</span>
+				<span class="logo-text">CLEANPROMPT</span>
 				<span class="logo-bracket">]</span>
 			</div>
-			<span class="version">v1.0.0</span>
+			<button class="features-btn" onclick={() => showFeatures = !showFeatures}>
+				{showFeatures ? '✕' : '?'} FEATURES
+			</button>
 		</header>
+
+		{#if showFeatures}
+			<div class="features-panel" transition:fly={{ y: -20, duration: 300 }}>
+				<div class="features-grid">
+					{#each modes as m}
+						<div class="feature-card">
+							<span class="feature-label">{m.label}</span>
+							<span class="feature-desc">{m.desc}</span>
+						</div>
+					{/each}
+				</div>
+				<p class="features-note">Select a mode that best fits your needs</p>
+			</div>
+		{/if}
 
 		<div class="terminal">
 			<div class="input-section">
@@ -93,7 +110,6 @@
 						class="prompt-input"
 						rows="4"
 						disabled={loading}
-						onfocus={() => {}}
 					></textarea>
 					<div class="input-glow"></div>
 				</div>
@@ -107,6 +123,7 @@
 								class:active={mode === m.value}
 								onclick={() => mode = m.value}
 								disabled={loading}
+								title={m.desc}
 							>
 								{m.label}
 							</button>
@@ -231,7 +248,9 @@
 			{/if}
 		</div>
 
-		<footer></footer>
+		<footer>
+			<span class="footer-text">AI-Powered Prompt Enhancement</span>
+		</footer>
 	</div>
 </main>
 
@@ -241,7 +260,7 @@
 		display: flex;
 		align-items: center;
 		justify-content: center;
-		padding: 40px 20px;
+		padding: 24px 16px;
 	}
 
 	.container {
@@ -253,7 +272,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 32px;
+		margin-bottom: 20px;
 	}
 
 	.logo {
@@ -271,16 +290,70 @@
 		text-shadow: 0 0 20px var(--accent-glow);
 	}
 
-	.version {
+	.features-btn {
+		background: transparent;
+		border: 1px solid var(--border-color);
+		color: var(--text-muted);
+		padding: 8px 14px;
+		border-radius: 8px;
+		font-size: 11px;
+		cursor: pointer;
+		transition: all 0.2s ease;
+	}
+
+	.features-btn:hover {
+		border-color: var(--accent);
+		color: var(--accent);
+	}
+
+	.features-panel {
+		background: var(--bg-secondary);
+		border: 1px solid var(--border-color);
+		border-radius: 12px;
+		padding: 20px;
+		margin-bottom: 20px;
+	}
+
+	.features-grid {
+		display: grid;
+		grid-template-columns: repeat(2, 1fr);
+		gap: 12px;
+	}
+
+	.feature-card {
+		background: var(--bg-primary);
+		border: 1px solid var(--border-color);
+		border-radius: 8px;
+		padding: 12px;
+		display: flex;
+		flex-direction: column;
+		gap: 4px;
+	}
+
+	.feature-label {
+		color: var(--accent);
+		font-size: 11px;
+		font-weight: 700;
+		letter-spacing: 1px;
+	}
+
+	.feature-desc {
+		color: var(--text-muted);
+		font-size: 11px;
+	}
+
+	.features-note {
+		text-align: center;
 		color: var(--text-muted);
 		font-size: 12px;
+		margin-top: 12px;
 	}
 
 	.terminal {
 		background: var(--bg-secondary);
 		border: 1px solid var(--border-color);
 		border-radius: 16px;
-		padding: 32px;
+		padding: 24px;
 		box-shadow:
 			0 0 0 1px var(--border-color),
 			0 25px 50px -12px rgba(0, 0, 0, 0.5);
@@ -289,7 +362,7 @@
 	.input-section {
 		display: flex;
 		flex-direction: column;
-		gap: 24px;
+		gap: 20px;
 	}
 
 	.input-label {
@@ -340,7 +413,7 @@
 		background: var(--bg-primary);
 		border: 1px solid var(--border-color);
 		border-radius: 12px;
-		padding: 20px;
+		padding: 16px;
 		color: var(--text-primary);
 		font-family: var(--font-mono);
 		font-size: 14px;
@@ -366,7 +439,7 @@
 	.mode-section {
 		display: flex;
 		flex-direction: column;
-		gap: 12px;
+		gap: 10px;
 	}
 
 	.mode-label {
@@ -386,7 +459,7 @@
 		background: transparent;
 		border: 1px solid var(--border-color);
 		color: var(--text-secondary);
-		padding: 10px 16px;
+		padding: 10px 14px;
 		border-radius: 8px;
 		font-family: var(--font-mono);
 		font-size: 11px;
@@ -421,7 +494,7 @@
 		background: linear-gradient(135deg, var(--accent), #00cc6a);
 		border: none;
 		color: var(--bg-primary);
-		padding: 18px 32px;
+		padding: 16px 28px;
 		border-radius: 12px;
 		font-family: var(--font-mono);
 		font-size: 14px;
@@ -431,19 +504,6 @@
 		transition: all 0.3s ease;
 		position: relative;
 		overflow: hidden;
-	}
-
-	.refine-btn::before {
-		content: '';
-		position: absolute;
-		inset: 0;
-		background: linear-gradient(135deg, transparent, rgba(255,255,255,0.2));
-		opacity: 0;
-		transition: opacity 0.3s ease;
-	}
-
-	.refine-btn:hover:not(:disabled)::before {
-		opacity: 1;
 	}
 
 	.refine-btn:hover:not(:disabled) {
@@ -479,16 +539,6 @@
 		to { transform: rotate(360deg); }
 	}
 
-	.loading-dots {
-		animation: dots 1.5s infinite;
-	}
-
-	@keyframes dots {
-		0%, 20% { content: '.'; }
-		40% { content: '..'; }
-		60%, 100% { content: '...'; }
-	}
-
 	.error-msg {
 		display: flex;
 		align-items: center;
@@ -496,9 +546,9 @@
 		background: var(--error-dim);
 		border: 1px solid var(--error);
 		color: var(--error);
-		padding: 16px 20px;
+		padding: 14px 18px;
 		border-radius: 12px;
-		margin-top: 24px;
+		margin-top: 20px;
 		font-size: 13px;
 	}
 
@@ -509,14 +559,14 @@
 	}
 
 	.output-section {
-		margin-top: 32px;
+		margin-top: 28px;
 	}
 
 	.output-divider {
 		display: flex;
 		align-items: center;
 		gap: 16px;
-		margin-bottom: 24px;
+		margin-bottom: 20px;
 	}
 
 	.divider-line {
@@ -536,8 +586,7 @@
 		background: var(--bg-primary);
 		border: 1px solid var(--border-color);
 		border-radius: 12px;
-		padding: 24px;
-		transition: border-color 0.3s ease;
+		padding: 20px;
 	}
 
 	.result-box:hover {
@@ -548,7 +597,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 16px;
+		margin-bottom: 14px;
 	}
 
 	.result-label {
@@ -573,8 +622,8 @@
 	}
 
 	.result-actions {
-		margin-top: 20px;
-		padding-top: 16px;
+		margin-top: 16px;
+		padding-top: 14px;
 		border-top: 1px solid var(--border-color);
 		display: flex;
 		justify-content: flex-end;
@@ -587,7 +636,7 @@
 		background: transparent;
 		border: 1px solid var(--accent);
 		color: var(--accent);
-		padding: 10px 20px;
+		padding: 10px 18px;
 		border-radius: 8px;
 		font-family: var(--font-mono);
 		font-size: 12px;
@@ -610,8 +659,8 @@
 	.score-section {
 		display: flex;
 		align-items: center;
-		gap: 16px;
-		margin-top: 24px;
+		gap: 14px;
+		margin-top: 20px;
 	}
 
 	.score-card {
@@ -619,7 +668,7 @@
 		background: var(--bg-primary);
 		border: 1px solid var(--border-color);
 		border-radius: 12px;
-		padding: 16px;
+		padding: 14px;
 	}
 
 	.score-card.original .score-fill {
@@ -635,7 +684,7 @@
 		display: flex;
 		justify-content: space-between;
 		align-items: center;
-		margin-bottom: 12px;
+		margin-bottom: 10px;
 	}
 
 	.score-title {
@@ -674,14 +723,14 @@
 	}
 
 	.improvements {
-		margin-top: 20px;
+		margin-top: 18px;
 		background: var(--bg-primary);
 		border: 1px solid var(--border-color);
 		border-radius: 12px;
 	}
 
 	.improvements summary {
-		padding: 16px 20px;
+		padding: 14px 18px;
 		cursor: pointer;
 		display: flex;
 		justify-content: space-between;
@@ -710,7 +759,7 @@
 	}
 
 	.improvements ul {
-		padding: 0 20px 16px;
+		padding: 0 18px 14px;
 		list-style: none;
 	}
 
@@ -736,28 +785,42 @@
 
 	footer {
 		text-align: center;
-		margin-top: 32px;
+		margin-top: 24px;
 		color: var(--text-muted);
-		font-size: 12px;
+		font-size: 11px;
 	}
 
+	/* Responsive styles */
 	@media (max-width: 600px) {
 		main {
-			padding: 20px 16px;
+			padding: 16px 12px;
 		}
 
 		.terminal {
-			padding: 24px 20px;
+			padding: 20px 16px;
 		}
 
 		header {
 			flex-direction: column;
-			gap: 8px;
+			gap: 10px;
 			text-align: center;
 		}
 
 		.logo {
 			font-size: 16px;
+		}
+
+		.features-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.mode-selector {
+			justify-content: center;
+		}
+
+		.mode-btn {
+			padding: 8px 10px;
+			font-size: 10px;
 		}
 
 		.score-section {
@@ -766,6 +829,17 @@
 
 		.score-arrow {
 			transform: rotate(90deg);
+		}
+
+		.refine-btn {
+			padding: 14px 20px;
+			font-size: 13px;
+		}
+
+		.result-header {
+			flex-direction: column;
+			gap: 8px;
+			align-items: flex-start;
 		}
 	}
 </style>
